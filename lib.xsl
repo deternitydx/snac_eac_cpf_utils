@@ -1269,10 +1269,10 @@
             Fix: aug 7 2013 added word "active" to active (aka flourished) date values.
 
             Suggested Fix: if only one date and not allow_single, include an empty <toDate/> element.
-        -->
+            
+            Fix: sep 5 2013 If from and to are equal, then create a single date.
 
-        <!-- 
-             normalize-space on the dates. Can't modify vars so we'll just make new ones.
+            normalize-space on the dates. Can't modify vars so we'll just make new ones.
         -->
 
         <xsl:variable name="nfrom" select="normalize-space($from)"/>
@@ -1285,7 +1285,7 @@
         </xsl:variable>
 
         <xsl:choose>
-            <xsl:when test="string-length($nto) = 0 and $allow_single">
+            <xsl:when test="(($from = $to) or (string-length($nto) = 0)) and $allow_single">
                 <date standardDate="{$nfrom}" localType="{$from_type}">
                     <xsl:value-of select="normalize-space(concat($active, ' ', $nfrom))"/>
                 </date>
@@ -2936,31 +2936,38 @@
 
 
     <xsl:template mode="copy-no-ns" match="*" >
+        <xsl:param name="ns"/>
         <!--
-            Print elements withtout the pesky namespace. This is mostly for
-            debugging where the namespace is just extraneous text that
-            interferes with legibility. Seems that we need to replace this line to
-            prevent namespace from printing.  <xsl:element name="{name(.)}"
-            namespace="{namespace-uri(.)}">
-
+            Print elements withtout the pesky namespace, or with a new namespace. Does a deep copy. (It
+            appears that recursing on the context sends children nodes to the recursive apply-templates. Note
+            that copy-no-ns matches on "*" which is probably part of the reason the context recursive
+            call/apply works.)
+            
+            This is mostly for debugging where the namespace is just extraneous text that interferes with
+            legibility. Seems that we need to replace this line to prevent namespace from printing.
+            <xsl:element name="{name(.)}"  namespace="{namespace-uri(.)}">
+            
             Using local-name() works way better than name(). In fact, if you ask
             this template to print something with a namespace unknown to this
             file, it throws an error when using name().
-
+            
             Interestingly, having a namespace such as the following in the
             stylesheet header causes that namespace to output regardless of the
             tricks below.
             
             xmlns="http://www.loc.gov/MARC21/slim"
-
+            
             Also interesting is that if we put xmlns="urn:isbn:1-931666-33-4"
             into the opening template element above, that problem goes
             away. Putting the xmlns into the apply-templates or the outer
             template in eac-cpf.xsl changes nothing.
-            -->
-        <xsl:element name="{local-name(.)}">
+            
+        -->
+        <xsl:element name="{local-name(.)}" namespace="{$ns}">
             <xsl:copy-of select="@*"/>
-            <xsl:apply-templates mode="copy-no-ns"/>
+            <xsl:apply-templates mode="copy-no-ns">
+                <xsl:with-param name="ns" select="$ns"/>
+            </xsl:apply-templates>
         </xsl:element>
     </xsl:template>
 
