@@ -783,13 +783,7 @@
                             </xsl:choose>
                         </xsl:for-each>
 
-                        <!-- all tokens before the first date -->
-                        <xsl:for-each select="$curr_tok[text() = 'num'][1]/preceding-sibling::tok">
-                            <xsl:value-of select="concat(., ' ')"/>
-                        </xsl:for-each>
-                        
                         <!-- the date itself, with @sep. -->
-                        <!--<xsl:value-of select="concat($curr_tok/@val, $curr_tok/@sep)"/>-->
 			<xsl:value-of select="$tokens/orig_date" />
 
                     </date>
