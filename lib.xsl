@@ -60,6 +60,9 @@
          Variables for the localType values. These have changed at least 3 times, so now they go into variables.
          "av_" is mnemonic for Attribute Value.
     -->
+    <!-- Added Sep 13 2013 -->
+    <xsl:variable name="av_DatabaseName" select="'http://socialarchive.iath.virginia.edu/control/term#DatabaseName'"/>
+
     <xsl:variable name="av_mergedRecord" select="'http://socialarchive.iath.virginia.edu/control/term#MergedRecord'"/>
     <xsl:variable name="av_suspiciousDate" select="'http://socialarchive.iath.virginia.edu/control/term#SuspiciousDate'"/>
     <xsl:variable name="av_active " select="'http://socialarchive.iath.virginia.edu/control/term#Active'"/>
@@ -86,22 +89,39 @@
     <xsl:variable name="av_BibliographicResource" select="'http://socialarchive.iath.virginia.edu/control/term#BibliographicResource'"/>
     <xsl:variable name="av_mayBeSameAs" select="'http://socialarchive.iath.virginia.edu/control/term#mayBeSameAs'"/>
     <xsl:variable name="av_sameAs" select="'http://www.w3.org/2002/07/owl#sameAs'"/>
+
+    <!--
+        When we find the tag <Corporation> we set the locn to 'CorporateBody'. Person and Family are ok.
+        
+        The "cpf" versions are used in CPF cpfDescription/identity/entityType
+    -->
+    <xsl:variable name="corp_val" select="'CorporateBody'"/>
+    <xsl:variable name="pers_val" select="'Person'"/>
+    <xsl:variable name="fami_val" select="'Family'"/>
+    <xsl:variable name="expe_val" select="'Expedition'"/>
+
+    <xsl:variable name="cpf_corp_val" select="'corporateBody'"/>
+    <xsl:variable name="cpf_pers_val" select="'person'"/>
+    <xsl:variable name="cpf_fami_val" select="'family'"/>
+    <xsl:variable name="cpf_expe_val" select="'expedition'"/>
+    
     
     <!-- 
-         The XSLT equivalent of a key-value lookup list.
+         The XSLT equivalent of a key-value lookup list. Use the "normal" versions of $pers_val etc. and
+         *only* use $cpf_pers_val etc. in the CPF entityType in eac_cpf.xsl.
     -->
     <xsl:variable name="etype" xmlns="urn:isbn:1-931666-33-4">
-        <value key="person">
+        <value key="{$pers_val}">
             <xsl:value-of select="$av_Person"/>
         </value>
-        <value key="corporateBody">
+        <value key="{$corp_val}">
             <xsl:value-of select="$av_CorporateBody"/>
         </value>
-        <value key="expedition">
+        <value key="{$expe_val}">
             <!-- Added to deal with field books -->
             <xsl:value-of select="$av_CorporateBody"/>
         </value>
-        <value key="family">
+        <value key="{$fami_val}">
             <xsl:value-of  select="$av_Family"/>
         </value>
     </xsl:variable>
@@ -812,9 +832,10 @@
 
     <xsl:template name="tpt_show_date" xmlns="urn:isbn:1-931666-33-4">
         <xsl:param name="tokens"/> 
-        <xsl:param name="is_family"/> 
+        <xsl:param name="is_family"/> <!-- means "active" not entity type family -->
         <xsl:param name="rec_pos"/> 
-        <!--
+        <xsl:param name="entity_type"/>
+    <!--
             Date determination logic is here, using the tokenized date. Some of this code is a bit
             dense. existDates must have same namespace as its parent element eac-cpf.
             
@@ -849,22 +870,6 @@
                 <xsl:text>&#x0A;</xsl:text>
             </xsl:message>
         </xsl:if>
-
-            <!--
-                This is (perhaps) a bandaid for an extra "active" in is_family. We look for an active token
-                and will not add literal text "active" if there is already and active token, even if is_family
-                is true.
-            -->
-        <!-- <xsl:variable name="has_active" as="xs:boolean"> -->
-        <!--     <xsl:choose> -->
-        <!--         <xsl:when test="count($tokens/tok[matches(text(), 'active')]) = 0"> -->
-        <!--             <xsl:value-of select="false()"/> -->
-        <!--         </xsl:when> -->
-        <!--         <xsl:otherwise> -->
-        <!--             <xsl:value-of select="true()"/> -->
-        <!--         </xsl:otherwise> -->
-        <!--     </xsl:choose> -->
-        <!-- </xsl:variable> -->
 
         <xsl:variable name="is_unparsed" as="xs:boolean">
             <xsl:choose>
@@ -921,7 +926,8 @@
                 </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
-
+        
+        <xsl:variable name="show_one">
         <xsl:choose>
             <!-- There is another unparsed "suspicious" date below in the otherwise element of this choose. -->
             <xsl:when test="$is_unparsed">
@@ -1249,6 +1255,38 @@
                 </existDates>
             </xsl:otherwise>
         </xsl:choose>
+        </xsl:variable> <!-- end show_one -->
+        
+        <xsl:variable name="active_range">
+            <xsl:value-of select="number(abs(
+                                  $show_one/eac:existDates/eac:dateRange/eac:fromDate[@localType=$av_active]/@standardDate -
+                                  $show_one/eac:existDates/eac:dateRange/eac:toDate[@localType=$av_active]/@standardDate))"/>
+        </xsl:variable>
+        
+        <!--
+            Any active person >60 years or NaN is suspicious. While we're at it, set existDates@localType to
+            suspicious for all suspicious dates.
+                            $active_range != 'NaN'))">
+
+        -->
+        <xsl:choose>
+            <xsl:when test="$entity_type = $pers_val and
+                            $active_range > 60">
+                <existDates localType="{$av_suspiciousDate}">
+                    <xsl:copy-of select="$show_one/eac:existDates/eac:date"/>
+                    <xsl:copy-of select="$show_one/eac:existDates/eac:dateRange"/>
+                </existDates>
+            </xsl:when>
+            <xsl:when test="count($show_one//*[@localType=$av_suspiciousDate]) > 0">
+                <existDates localType="{$av_suspiciousDate}">
+                    <xsl:copy-of select="$show_one/eac:existDates/eac:date"/>
+                    <xsl:copy-of select="$show_one/eac:existDates/eac:dateRange"/>
+                </existDates>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:copy-of select="$show_one"/>
+            </xsl:otherwise>
+        </xsl:choose>
     </xsl:template> <!-- end tpt_show_date -->
 
     
@@ -1402,7 +1440,7 @@
             <xsl:copy-of select="lib:pass_5($pass_4)"/>
 
         </xsl:if>
-    </xsl:template>
+    </xsl:template> <!-- end tpt_exist_dates -->
 
 
    <xsl:function name="lib:edate_core">
