@@ -57,6 +57,8 @@ ead_cpf_utils repository, many of the files cross reference each other.
 
 * The git command line utility. (Maybe)
 
+* Apache Commons JAR (to run Date Parsing Library) available at http://commons.apache.org/proper/commons-lang/download_lang.cgi
+
 
 You will have to run some commands in the terminal window. For Linux I like xterm, although any terminal or
 console should be fine. Mac users should use Terminal: Applications -> Utilities -> Terminal.  If you are
